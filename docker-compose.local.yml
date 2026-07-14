@@ -144,8 +144,13 @@ services:
   envoy:
     build: ./data-plane/envoy
     networks: [poc-net]
-    # deliberately no "ports:" -- Envoy is reached only via tunnel-agent,
-    # never from the host.
+    # For real traffic Envoy is reached only via tunnel-agent.
+    # The port below is a **dev-only** convenience so you can poke the admin
+    # panel from a browser at http://localhost:9901. Bound to 127.0.0.1 on
+    # the host so only this machine can reach it, not the LAN. Remove this
+    # block before running the "no inbound port" acceptance test.
+    ports:
+      - "127.0.0.1:9901:9901"
 
   product-mfe:
     build: ./data-plane/product-mfe
