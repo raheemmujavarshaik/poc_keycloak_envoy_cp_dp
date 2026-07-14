@@ -1,0 +1,20 @@
+{
+  "name": "app-shell",
+  "version": "0.1.0",
+  "description": "POC: control-plane React app shell. Handles login, and loads the data-plane product-mfe through the tunnel via Module Federation.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 3000 --host"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@originjs/vite-plugin-federation": "^1.4.1",
+    "@vitejs/plugin-react": "^4.3.2",
+    "vite": "^5.4.8"
+  }
+}

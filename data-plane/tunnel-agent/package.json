@@ -1,0 +1,15 @@
+{
+  "name": "tunnel-agent",
+  "version": "0.1.0",
+  "description": "POC: outbound-only agent running in the data plane. Dials the control plane's Tunnel Broker, never opens an inbound listener, relays requests to the local Envoy gateway.",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "realm": "inaiera",
+  "enabled": true,
+  "displayName": "InAiEra Platform",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "clients": [
+    {
+      "clientId": "bff",
+      "name": "Control Plane BFF",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "bff-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:4002/auth/callback"],
+      "webOrigins": ["http://localhost:3000"],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:3000##http://localhost:3000/"
+      },
+      "protocolMappers": [
+        {
+          "name": "org_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "org_id",
+            "claim.name": "org_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "acme",
+      "displayName": "Acme Corp SSO",
+      "providerId": "oidc",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "inaiera-broker",
+        "clientSecret": "acme-broker-secret",
+        "authorizationUrl": "https://keycloak:8443/realms/acme/protocol/openid-connect/auth",
+        "tokenUrl": "http://keycloak:8080/realms/acme/protocol/openid-connect/token",
+        "userInfoUrl": "http://keycloak:8080/realms/acme/protocol/openid-connect/userinfo",
+        "issuer": "https://keycloak:8443/realms/acme",
+        "defaultScope": "openid profile email",
+        "syncMode": "IMPORT"
+      }
+    }
+  ],
+  "identityProviderMappers": [
+    {
+      "name": "stamp-org-id",
+      "identityProviderAlias": "acme",
+      "identityProviderMapper": "hardcoded-attribute-idp-mapper",
+      "config": {
+        "attribute": "org_id",
+        "attribute.value": "org_acme_001",
+        "syncMode": "INHERIT"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "jordan.lee@beta.test",
+      "email": "jordan.lee@beta.test",
+      "firstName": "Jordan",
+      "lastName": "Lee",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "org_id": ["org_beta_002"]
+      },
+      "credentials": [
+        { "type": "password", "value": "BetaPassword123!", "temporary": false }
+      ]
+    }
+  ]
+}

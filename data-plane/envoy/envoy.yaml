@@ -1,0 +1,101 @@
+# POC Envoy config.
+#
+# In the full architecture, Envoy validates a signed data-plane ticket
+# against a *locally mirrored* JWKS (no live call back to the control
+# plane) and checks the ticket's audience against this data plane's own ID.
+# For POC speed, this config uses remote_jwks pointing at the local Keycloak
+# container instead of mirroring keys via GitOps -- functionally similar for
+# a demo, but noted here as a simplification to harden before production.
+#
+# Envoy only ever receives connections *locally*, delivered by the tunnel
+# agent -- it has no listener reachable from outside this container network.
+
+static_resources:
+  listeners:
+    - name: main_listener
+      address:
+        # Envoy convention port. Deliberately distinct from Keycloak's :8080
+        # so nobody confuses the two even though they live in separate
+        # container network namespaces. Keep in sync with docker-compose
+        # ENVOY_URL and any Terraform data-plane definitions.
+        socket_address: { address: 0.0.0.0, port_value: 10000 }
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: data_plane_services
+                      domains: ["*"]
+                      routes:
+                        - match: { path: "/healthz" }
+                          direct_response:
+                            status: 200
+                            body: { inline_string: "ok" }
+                        - match: { prefix: "/product" }
+                          route:
+                            cluster: product_mfe_cluster
+                            prefix_rewrite: "/"
+                        - match: { prefix: "/" }
+                          route:
+                            cluster: product_mfe_cluster
+                http_filters:
+                  - name: envoy.filters.http.jwt_authn
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+                      providers:
+                        keycloak_provider:
+                          # Must match `iss` claim in tokens. Keycloak now
+                          # advertises itself as https://keycloak:8443/*, so
+                          # every token minted for this realm has that as iss.
+                          issuer: "https://keycloak:8443/realms/inaiera"
+                          remote_jwks:
+                            http_uri:
+                              # Server-to-server JWKS fetch — kept on HTTP so
+                              # Envoy doesn't need to trust the self-signed cert.
+                              uri: "https://keycloak:8080/realms/inaiera/protocol/openid-connect/certs"
+                              cluster: keycloak_cluster
+                              timeout: 5s
+                            cache_duration: 300s
+                          forward: true
+                          from_headers:
+                            - name: "X-Data-Plane-Ticket"
+                      rules:
+                        - match: { prefix: "/healthz" }
+                        - match: { prefix: "/" }
+                          requires:
+                            provider_name: "keycloak_provider"
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  clusters:
+    - name: product_mfe_cluster
+      connect_timeout: 5s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: product_mfe_cluster
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address: { address: product-mfe, port_value: 5000 }
+    - name: keycloak_cluster
+      connect_timeout: 5s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: keycloak_cluster
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address: { address: keycloak, port_value: 8080 }
+
+admin:
+  address:
+    socket_address: { address: 127.0.0.1, port_value: 9901 }

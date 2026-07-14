@@ -1,0 +1,24 @@
+{
+  "name": "user-management-service",
+  "version": "0.1.0",
+  "description": "POC: OIDC login/callback, session management, user CRUD, RFC 8693 token exchange for the data-plane ticket",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "connect-redis": "^7.1.1",
+    "http-proxy-middleware": "^3.0.3",
+    "ioredis": "^5.4.1",
+    "jose": "^5.9.6",
+    "mongodb": "^6.9.0"
+  }
+}

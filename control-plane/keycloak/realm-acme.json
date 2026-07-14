@@ -1,0 +1,35 @@
+{
+  "realm": "acme",
+  "enabled": true,
+  "displayName": "Acme Corp (simulated customer enterprise IdP)",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginTheme": "keycloak",
+  "clients": [
+    {
+      "clientId": "inaiera-broker",
+      "name": "InAiEra broker client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "acme-broker-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["https://keycloak:8443/realms/inaiera/broker/acme/endpoint*"],
+      "webOrigins": ["+"]
+    }
+  ],
+  "users": [
+    {
+      "username": "sarah.choi",
+      "email": "sarah.choi@acme.test",
+      "firstName": "Sarah",
+      "lastName": "Choi",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "AcmePassword123!", "temporary": false }
+      ]
+    }
+  ]
+}
