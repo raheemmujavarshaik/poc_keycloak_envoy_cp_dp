@@ -56,7 +56,7 @@ static_resources:
                             http_uri:
                               # Server-to-server JWKS fetch — kept on HTTP so
                               # Envoy doesn't need to trust the self-signed cert.
-                              uri: "https://keycloak:8080/realms/inaiera/protocol/openid-connect/certs"
+                              uri: "http://keycloak:8080/realms/inaiera/protocol/openid-connect/certs"
                               cluster: keycloak_cluster
                               timeout: 5s
                             cache_duration: 300s
