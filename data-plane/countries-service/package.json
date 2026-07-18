@@ -1,0 +1,14 @@
+{
+  "name": "countries-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sample data-plane API. Serves a canned list of countries so the POC can exercise 'MFE calls another data-plane microservice through the same tunnel + Envoy path' without a real upstream dependency.",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

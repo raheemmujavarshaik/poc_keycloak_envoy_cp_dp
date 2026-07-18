@@ -157,6 +157,14 @@ services:
     networks: [poc-net]
     # deliberately no "ports:" -- reached only via Envoy.
 
+  # Sample second data-plane microservice. Demonstrates that any HTTP service
+  # sitting in the data-plane network can be exposed through the same tunnel
+  # + Envoy path — just add a cluster + route in envoy.yaml (already done).
+  countries-service:
+    build: ./data-plane/countries-service
+    networks: [poc-net]
+    # deliberately no "ports:" -- reached only via Envoy, same as product-mfe.
+
   tunnel-agent:
     build: ./data-plane/tunnel-agent
     environment:
