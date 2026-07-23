@@ -1,4 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
+import CatalogView from "./CatalogView.jsx";
+import RolesView from "./RolesView.jsx";
+import WorkbenchView from "./WorkbenchView.jsx";
 
 const ORG_VALIDATION_URL = import.meta.env.VITE_ORG_VALIDATION_URL || "http://localhost:4001";
 const BFF_URL = import.meta.env.VITE_BFF_URL || "http://localhost:4002";
@@ -14,6 +17,9 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [orgError, setOrgError] = useState(null);
   const [showProduct, setShowProduct] = useState(false);
+  const [showCatalog, setShowCatalog] = useState(false);
+  const [showRoles, setShowRoles] = useState(false);
+  const [showWorkbench, setShowWorkbench] = useState(false);
 
   useEffect(() => {
     fetch(`${BFF_URL}/auth/session`, { credentials: "include" })
@@ -106,17 +112,52 @@ export default function App() {
       <p style={{ fontFamily: "sans-serif", color: "#5B6B7C" }}>
         Org: {session.user.orgId} &middot; Data plane: {session.user.dataPlaneId}
       </p>
-      <button
-        onClick={() => setShowProduct(true)}
-        style={{ padding: "8px 16px", background: "#057A6E", color: "white", border: "none", borderRadius: 4, fontFamily: "sans-serif" }}
-      >
-        Open Product (loads through the tunnel)
-      </button>
+      <div style={{ display: "flex", gap: 12 }}>
+        <button
+          onClick={() => setShowProduct(true)}
+          style={{ padding: "8px 16px", background: "#057A6E", color: "white", border: "none", borderRadius: 4, fontFamily: "sans-serif" }}
+        >
+          Open Product (loads through the tunnel)
+        </button>
+        <button
+          onClick={() => setShowCatalog((v) => !v)}
+          style={{ padding: "8px 16px", background: "#5B4B9A", color: "white", border: "none", borderRadius: 4, fontFamily: "sans-serif" }}
+        >
+          {showCatalog ? "Hide" : "Browse"} Catalog
+        </button>
+        <button
+          onClick={() => setShowRoles((v) => !v)}
+          style={{ padding: "8px 16px", background: "#0B2545", color: "white", border: "none", borderRadius: 4, fontFamily: "sans-serif" }}
+        >
+          {showRoles ? "Hide" : "Manage"} Roles
+        </button>
+        <button
+          onClick={() => setShowWorkbench((v) => !v)}
+          style={{ padding: "8px 16px", background: "#13315C", color: "white", border: "none", borderRadius: 4, fontFamily: "sans-serif" }}
+        >
+          {showWorkbench ? "Hide" : "App"} Workbench
+        </button>
+      </div>
       {showProduct && (
         <div style={{ marginTop: 16, width: 420 }}>
           <Suspense fallback={<p style={{ fontFamily: "sans-serif" }}>Loading product from data plane\u2026</p>}>
             <ProductWidget />
           </Suspense>
+        </div>
+      )}
+      {showCatalog && (
+        <div style={{ marginTop: 16 }}>
+          <CatalogView />
+        </div>
+      )}
+      {showRoles && (
+        <div style={{ marginTop: 16 }}>
+          <RolesView />
+        </div>
+      )}
+      {showWorkbench && (
+        <div style={{ marginTop: 16 }}>
+          <WorkbenchView />
         </div>
       )}
       <button onClick={handleLogout} style={{ marginTop: 24, background: "none", border: "none", color: "#5B6B7C", textDecoration: "underline", cursor: "pointer" }}>

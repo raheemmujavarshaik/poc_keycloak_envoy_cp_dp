@@ -1,0 +1,15 @@
+{
+  "name": "platform-apps-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sample data-plane product microservice with two app domains (MLOps, Data Platform). Every resource action is enforced by calling the Authorization Gateway's /v1/authorize -- this is the 'product microservice asks the gateway for a yes/no' pattern the RBAC design describes, made concrete so the POC can test data_engineer/data_scientist privileges per user.",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "express": "^4.19.2"
+  }
+}

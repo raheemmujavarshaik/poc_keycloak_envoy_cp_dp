@@ -43,6 +43,33 @@ static_resources:
                             # Strip /api so the upstream service sees the plain
                             # /countries paths it actually implements.
                             prefix_rewrite: "/countries"
+
+                        # --- Authorization Gateway: internal role-sync ---
+                        # No jwt_authn requirement (see rules below) -- this
+                        # path is protected by the gateway's own shared secret
+                        # check instead, since it's a system-to-system call from
+                        # the control plane's Role Sync Worker, not a user session.
+                        # Two-route pattern: prefix_rewrite is a literal string
+                        # substitution, so stripping "/authz" needs both the
+                        # trailing-slash and no-slash forms to avoid a "//" path.
+                        - match: { prefix: "/authz/internal/" }
+                          route: { cluster: authorization_gateway_cluster, prefix_rewrite: "/internal/" }
+                        - match: { prefix: "/authz/internal" }
+                          route: { cluster: authorization_gateway_cluster, prefix_rewrite: "/internal" }
+
+                        # --- Authorization Gateway: user-facing (catalog search, authorize) ---
+                        - match: { prefix: "/authz/" }
+                          route: { cluster: authorization_gateway_cluster, prefix_rewrite: "/" }
+                        - match: { prefix: "/authz" }
+                          route: { cluster: authorization_gateway_cluster, prefix_rewrite: "/" }
+
+                        # --- Platform Apps service (MLOps + Data Platform demo) ---
+                        # No prefix_rewrite: the service implements the /apps/*
+                        # paths directly. Falls under the catch-all jwt rule
+                        # below, so the data-plane ticket is still required.
+                        - match: { prefix: "/apps" }
+                          route: { cluster: platform_apps_service_cluster }
+
                         - match: { prefix: "/product" }
                           route:
                             cluster: product_mfe_cluster
@@ -73,6 +100,15 @@ static_resources:
                             - name: "X-Data-Plane-Ticket"
                       rules:
                         - match: { prefix: "/healthz" }
+                        # Internal role-sync: exempted from the user-token
+                        # requirement. Reachable only via the tunnel, and
+                        # separately gated by the Authorization Gateway's own
+                        # x-internal-sync-token check -- two independent layers,
+                        # neither of which is "the tunnel delivered it so it
+                        # must be legit". (User-facing /authz/* catalog+authorize
+                        # calls still fall under the catch-all rule below and
+                        # require the data-plane ticket.)
+                        - match: { prefix: "/authz/internal" }
                         - match: { prefix: "/" }
                           requires:
                             provider_name: "keycloak_provider"
@@ -103,6 +139,28 @@ static_resources:
               - endpoint:
                   address:
                     socket_address: { address: countries-service, port_value: 8000 }
+    - name: authorization_gateway_cluster
+      connect_timeout: 5s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: authorization_gateway_cluster
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address: { address: authorization-gateway, port_value: 4010 }
+    - name: platform_apps_service_cluster
+      connect_timeout: 5s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: platform_apps_service_cluster
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address: { address: platform-apps-service, port_value: 4020 }
     - name: keycloak_cluster
       connect_timeout: 5s
       type: STRICT_DNS

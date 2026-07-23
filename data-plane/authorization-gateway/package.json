@@ -1,0 +1,18 @@
+{
+  "name": "authorization-gateway",
+  "version": "0.1.0",
+  "description": "POC: Authorization Gateway. Extends Gravitino RBAC to app-level resources, exposes the unified catalog search surface, and receives role/grant syncs from the control plane over the tunnel.",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "ioredis": "^5.4.1"
+  }
+}

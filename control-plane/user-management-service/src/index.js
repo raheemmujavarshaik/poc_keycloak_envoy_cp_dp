@@ -7,6 +7,8 @@ const { connect, findOrCreateUser } = require("./db");
 const { buildSessionMiddleware } = require("./session");
 const kc = require("./keycloak");
 const { dataPlaneRoute } = require("./dataPlaneProxy");
+const rolesRouter = require("./roles");
+const { startRoleSyncWorker } = require("./roleSync");
 
 const PORT = process.env.PORT || 4002;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -14,6 +16,7 @@ const PKCE_COOKIE = "pkce_state";
 
 async function main() {
   await connect();
+  startRoleSyncWorker();
 
   const app = express();
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
@@ -28,6 +31,11 @@ async function main() {
   app.use(express.json());
 
   app.get("/healthz", (_req, res) => res.json({ status: "ok" }));
+
+  app.use("/roles", (req, res, next) => {
+    if (!req.session.user) return res.status(401).json({ error: "not_authenticated" });
+    next();
+  }, rolesRouter);
 
   /**
    * Step 3 of the login flow (redirect). Expects the org already validated

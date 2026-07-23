@@ -41,13 +41,23 @@ app.all("/api/dataplane/:dataPlaneId/*", async (req, res) => {
   }
 
   try {
+    // Forward all headers except hop-by-hop ones and ones we recompute
+    // ourselves (content-length changes once the body is re-serialized;
+    // host/connection are meaningless once relayed to a different
+    // destination). Originally this only forwarded two hardcoded headers,
+    // which silently dropped anything else a caller needed -- e.g. the
+    // internal role-sync token used by the Role Sync Worker.
+    const DROP_HEADERS = new Set(["host", "connection", "content-length"]);
+    const forwardedHeaders = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (!DROP_HEADERS.has(key.toLowerCase())) forwardedHeaders[key] = value;
+    }
+    forwardedHeaders["content-type"] = req.header("content-type") || "application/octet-stream";
+
     const result = await broker.relay(dataPlaneId, {
       method: req.method,
       path: path + (req.url.includes("?") ? "?" + req.url.split("?")[1] : ""),
-      headers: {
-        "x-data-plane-ticket": ticket,
-        "content-type": req.header("content-type") || "application/octet-stream",
-      },
+      headers: forwardedHeaders,
       body: req.body && req.body.length ? req.body.toString("base64") : null,
     });
 
