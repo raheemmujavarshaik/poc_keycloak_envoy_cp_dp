@@ -6,6 +6,8 @@ const DATA_PLANE_ID = import.meta.env.VITE_DATA_PLANE_ID || "dp_demo";
 // CatalogView uses: the BFF mints the data-plane ticket server-side, and the
 // broker forwards our X-Act-As-User header through the tunnel to the service.
 const base = `/api/dataplane/${DATA_PLANE_ID}/apps`;
+// The Authorization Gateway (behind Envoy's /authz route) vends Postgres creds.
+const authzBase = `/api/dataplane/${DATA_PLANE_ID}/authz`;
 
 // Pre-seeded by user-management-service (db.js seedUserRoles). Dave is
 // intentionally unseeded -> a "no roles" user, denied everywhere.
@@ -14,6 +16,8 @@ const TEST_USERS = [
   { email: "bob.scientist@acme.test", label: "Bob", note: "data_scientist" },
   { email: "carol.lead@acme.test", label: "Carol", note: "both roles" },
   { email: "dave.newbie@acme.test", label: "Dave", note: "no roles" },
+  // Real Keycloak user — the OIDC device-flow login actually completes for this one.
+  { email: "jordan.lee@beta.test", label: "Jordan", note: "data_scientist · Keycloak login" },
 ];
 
 const METHOD = { view: "GET", create: "POST", edit: "PUT", delete: "DELETE" };
@@ -36,6 +40,13 @@ export default function WorkbenchView() {
   const [resource, setResource] = useState("training_jobs");
   const [outcome, setOutcome] = useState(null);
   const [busy, setBusy] = useState(false);
+
+  // database access (Postgres credential vending)
+  const [dbUser, setDbUser] = useState(TEST_USERS[0].email); // Alice
+  const [dbResult, setDbResult] = useState(null);
+  const [dbBusy, setDbBusy] = useState(false);
+  const [revealed, setRevealed] = useState({}); // role -> bool
+  const [copied, setCopied] = useState(null);
 
   const loadMatrix = useCallback(async () => {
     setLoading(true);
@@ -103,6 +114,36 @@ export default function WorkbenchView() {
     setDomain(id);
     const d = domains.find((x) => x.id === id);
     if (d?.resources?.length) setResource(d.resources[0].id);
+  }
+
+  async function getDbCreds() {
+    setDbBusy(true);
+    setDbResult(null);
+    setRevealed({});
+    try {
+      const res = await fetch(`${authzBase}/v1/pg/credentials`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: dbUser }),
+      });
+      const body = await res.json().catch(() => ({}));
+      setDbResult({ status: res.status, body });
+    } catch (err) {
+      setDbResult({ status: 0, body: { message: err.message } });
+    } finally {
+      setDbBusy(false);
+    }
+  }
+
+  async function copyText(text, key) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+      setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500);
+    } catch {
+      /* clipboard may be blocked; ignore */
+    }
   }
 
   return (
@@ -210,6 +251,91 @@ export default function WorkbenchView() {
           )}
         </div>
       )}
+
+      {/* ---- Database access (Postgres · Keycloak OIDC) ---- */}
+      <div style={{ marginTop: 20, borderTop: "1px solid #E1E6EB", paddingTop: 12 }}>
+        <h4 style={{ margin: "0 0 4px", fontSize: 14, color: "#0B2545" }}>Database access (Postgres · Keycloak OIDC)</h4>
+        <p style={{ margin: "0 0 10px", fontSize: 12, color: "#5B6B7C" }}>
+          Pick a user and check their Postgres access. Authentication is via Keycloak (no
+          password); privileges come from their Gravitino role. The browser can&rsquo;t open a
+          psql/OIDC session, so we show the <strong>ready-to-run connect command</strong> plus this
+          user&rsquo;s <strong>live effective permissions</strong> (queried straight from Postgres).
+        </p>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <label style={lbl}>User</label>
+          <select value={dbUser} onChange={(e) => setDbUser(e.target.value)} style={sel}>
+            {TEST_USERS.map((u) => (
+              <option key={u.email} value={u.email}>{u.label} ({u.note})</option>
+            ))}
+          </select>
+          <button onClick={getDbCreds} disabled={dbBusy} style={{ ...actionBtn, background: "#13315C", textTransform: "none" }}>
+            {dbBusy ? "Checking…" : "Check DB access"}
+          </button>
+        </div>
+
+        {dbResult && dbResult.status === 200 && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 12, color: "#5B6B7C", marginBottom: 6 }}>
+              Roles: {(dbResult.body.roles || []).map((r) => <code key={r} style={{ marginRight: 6 }}>{r}</code>)}
+            </div>
+
+            {/* OIDC connect command — run in a terminal */}
+            <div style={{ border: "1px solid #E1E6EB", borderRadius: 6, padding: 10, marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: "#5B6B7C", marginBottom: 4 }}>
+                Connect (run in a terminal from the project dir &mdash; opens a Keycloak browser login, no password):
+              </div>
+              <code style={{ display: "block", fontSize: 12, background: "#F1F4F7", padding: "6px 8px", borderRadius: 4, wordBreak: "break-all", color: "#132238" }}>
+                {dbResult.body.connection?.psqlDocker}
+              </code>
+              <div style={{ display: "flex", gap: 8, marginTop: 6, alignItems: "center" }}>
+                <button onClick={() => copyText(dbResult.body.connection.psqlDocker, "psql")} style={miniBtn}>
+                  {copied === "psql" ? "Copied ✓" : "Copy command"}
+                </button>
+                <span style={{ fontSize: 11, color: "#9DA9B4" }}>
+                  uses the container&rsquo;s PG18 client (127.0.0.1:5432)
+                </span>
+              </div>
+              <details style={{ marginTop: 6 }}>
+                <summary style={{ fontSize: 11, color: "#5B6B7C", cursor: "pointer" }}>host client alternative (needs PostgreSQL 18 psql)</summary>
+                <code style={{ display: "block", fontSize: 11, background: "#F1F4F7", padding: "6px 8px", borderRadius: 4, wordBreak: "break-all", color: "#5B6B7C", marginTop: 4 }}>
+                  {dbResult.body.connection?.psql}
+                </code>
+              </details>
+            </div>
+
+            {/* live effective permissions matrix */}
+            <div style={{ fontSize: 12, color: "#5B6B7C", margin: "0 0 4px" }}>Effective permissions (live from Postgres):</div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: "#E6F1F0" }}>
+                  <th style={th}>Table</th>
+                  {["SELECT", "INSERT", "UPDATE", "DELETE"].map((c) => <th key={c} style={{ ...th, textAlign: "center" }}>{c}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {(dbResult.body.access || []).map((a) => (
+                  <tr key={`${a.schema}.${a.table}`} style={{ borderTop: "1px solid #E1E5EA" }}>
+                    <td style={td}><code>{a.schema}.{a.table}</code></td>
+                    {["select", "insert", "update", "delete"].map((act) => (
+                      <td key={act} style={{ ...td, textAlign: "center" }}>
+                        {a.privileges.includes(act)
+                          ? <span style={{ color: "#1B6E43", fontWeight: "bold" }}>✓</span>
+                          : <span style={{ color: "#C7CFD6" }}>—</span>}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {dbResult && dbResult.status !== 200 && (
+          <div style={box("#FDECEC", "#8B1F1F", "#F2B8B8")}>
+            ✗ {dbResult.status || "ERR"} &mdash; {dbResult.body.message || "no Postgres access"}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -240,3 +366,4 @@ const lbl = { fontSize: 12, color: "#5B6B7C" };
 const sel = { padding: 6, fontSize: 13, border: "1px solid #C7CFD6", borderRadius: 4 };
 const actionBtn = { padding: "8px 18px", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 14, textTransform: "capitalize" };
 const ghostBtn = { padding: "4px 10px", background: "none", border: "1px solid #C7CFD6", borderRadius: 4, cursor: "pointer", fontSize: 12, color: "#5B6B7C" };
+const miniBtn = { padding: "4px 10px", background: "none", border: "1px solid #C7CFD6", borderRadius: 4, cursor: "pointer", fontSize: 11, color: "#0B2545" };

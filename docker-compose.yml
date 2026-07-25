@@ -192,6 +192,14 @@ services:
   # its own logs.
   gravitino:
     image: apache/gravitino:1.0.1
+    # The image's rewrite_gravitino_server_config.py resets a fixed set of keys
+    # (incl. authorization.enable) from these env vars / its defaults, IGNORING
+    # the mounted conf. So authorization MUST be enabled here, not just in the
+    # file. serviceAdmins=anonymous lets the gateway (no auth header → simple
+    # authenticator maps to "anonymous") manage roles/users.
+    environment:
+      GRAVITINO_AUTHORIZATION_ENABLE: "true"
+      GRAVITINO_AUTHORIZATION_SERVICE_ADMINS: anonymous
     # Stage the config at a non-mounted path and copy it into place at
     # startup. Gravitino's start-gravitino.sh runs rewrite_gravitino_server_config.py,
     # which does os.remove('conf/gravitino.conf') to rewrite the file in
@@ -222,6 +230,53 @@ services:
       retries: 20
       start_period: 20s
 
+  # Data-plane Postgres. Access is governed by the control-plane Gravitino
+  # roles: the Authorization Gateway GRANTs privileges to fixed group roles
+  # (data_scientist, data_engineer) from the synced grants, and vends those
+  # roles' passwords only after a privilege check -- no per-person accounts.
+  postgres:
+    # PostgreSQL 18 + Percona pg_oidc_validator (see data-plane/postgres/Dockerfile).
+    # amd64-only: the validator has no arm64 build, so this runs under emulation
+    # on Apple Silicon.
+    build:
+      context: ./data-plane/postgres
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pg_admin_poc
+      POSTGRES_DB: dataplane
+    # pg_hba.conf is the swappable auth point -- now delegating to Keycloak via
+    # the `oauth` method. The two GUCs load + configure pg_oidc_validator.
+    command:
+      - postgres
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
+      - -c
+      - ident_file=/etc/postgresql/pg_ident.conf
+      - -c
+      - oauth_validator_libraries=pg_oidc_validator
+      - -c
+      - pg_oidc_validator.authn_field=email
+    volumes:
+      - ./data-plane/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./data-plane/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./data-plane/postgres/pg_ident.conf:/etc/postgresql/pg_ident.conf:ro
+    networks: [poc-net]
+    # Needs Keycloak reachable to validate tokens at connect time.
+    depends_on:
+      keycloak: { condition: service_healthy }
+    # DEV-ONLY host port for direct psql/JDBC/BI connections, bound to 127.0.0.1.
+    # Direct DB access needs an inbound port -- a deliberate exception to the
+    # data plane's "no inbound port" rule; remove before that acceptance test.
+    ports:
+      - "127.0.0.1:5434:5432"    # host 5434 → container 5432 (5432/5433 already in use locally)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dataplane"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   authorization-gateway:
     build: ./data-plane/authorization-gateway
     environment:
@@ -229,6 +284,19 @@ services:
       GRAVITINO_METALAKE: org_demo
       REDIS_URL: redis://dp-redis:6379
       INTERNAL_SYNC_TOKEN: poc-internal-sync-secret
+      # Postgres: admin conn (to run GRANT/REVOKE), the public address handed to
+      # clients, and the group-role passwords to vend (must match the init env).
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: dataplane
+      PG_ADMIN_USER: postgres
+      PG_ADMIN_PASSWORD: pg_admin_poc
+      PG_PUBLIC_HOST: localhost
+      PG_PUBLIC_PORT: 5434
+      PG_MANAGED_SCHEMAS: mlops,dataplatform
+      # OAuth connection details vended to users (they authenticate via Keycloak).
+      KEYCLOAK_ISSUER: https://keycloak:8443/realms/inaiera
+      PG_OAUTH_CLIENT_ID: pgclient
     networks: [poc-net]
     restart: on-failure
     # deliberately no "ports:" -- reached only via Envoy's /authz route,
@@ -242,6 +310,7 @@ services:
     depends_on:
       dp-redis: { condition: service_healthy }
       gravitino: { condition: service_healthy }
+      postgres: { condition: service_healthy }
 
   # Sample product microservice with two app domains (MLOps, Data Platform).
   # Enforces every resource action by calling the Authorization Gateway's

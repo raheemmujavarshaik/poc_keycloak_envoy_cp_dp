@@ -58,6 +58,8 @@ async function seedRoleTemplates() {
       description: "Builds Kafka Connect ingestions, dbt transformations, and Flink SQL streams",
       grants: [
         { resource: "platform_apps.dataplatform.workspaces.*", privileges: ["WRITE_FILESET"] },
+        // Postgres: full DML on the dataplatform schema (mapped to SELECT/INSERT/UPDATE/DELETE).
+        { resource: "postgres.dataplatform.*", privileges: ["WRITE_TABLE"] },
       ],
     },
     {
@@ -65,6 +67,8 @@ async function seedRoleTemplates() {
       description: "Performs MLOps/LLMOps work: model training, deployment, inference",
       grants: [
         { resource: "platform_apps.mlops.*", privileges: ["WRITE_FILESET"] },
+        // Postgres: read-only on the mlops schema (mapped to SELECT).
+        { resource: "postgres.mlops.*", privileges: ["READ_TABLE"] },
       ],
     },
   ]);

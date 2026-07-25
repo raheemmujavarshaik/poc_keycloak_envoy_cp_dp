@@ -14,8 +14,12 @@
       "secret": "bff-secret",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
-      "redirectUris": ["http://localhost:4002/auth/callback"],
-      "webOrigins": ["http://localhost:3000"],
+      "redirectUris": [
+        "http://localhost:4002/auth/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
       "attributes": {
         "post.logout.redirect.uris": "http://localhost:3000##http://localhost:3000/"
       },
@@ -27,6 +31,33 @@
           "config": {
             "user.attribute": "org_id",
             "claim.name": "org_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "pgclient",
+      "name": "PostgreSQL OAuth Client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "attributes": {
+        "oauth2.device.authorization.grant.enabled": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
             "jsonType.label": "String",
             "id.token.claim": "true",
             "access.token.claim": "true",
@@ -78,10 +109,76 @@
       "enabled": true,
       "emailVerified": true,
       "attributes": {
-        "org_id": ["org_beta_002"]
+        "org_id": [
+          "org_beta_002"
+        ]
       },
       "credentials": [
-        { "type": "password", "value": "BetaPassword123!", "temporary": false }
+        {
+          "type": "password",
+          "value": "BetaPassword123!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "alice.engineer@acme.test",
+      "email": "alice.engineer@acme.test",
+      "firstName": "Alice",
+      "lastName": "Engineer",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Password123!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "bob.scientist@acme.test",
+      "email": "bob.scientist@acme.test",
+      "firstName": "Bob",
+      "lastName": "Scientist",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Password123!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "carol.lead@acme.test",
+      "email": "carol.lead@acme.test",
+      "firstName": "Carol",
+      "lastName": "Lead",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Password123!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "dave.newbie@acme.test",
+      "email": "dave.newbie@acme.test",
+      "firstName": "Dave",
+      "lastName": "Newbie",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Password123!",
+          "temporary": false
+        }
       ]
     }
   ]

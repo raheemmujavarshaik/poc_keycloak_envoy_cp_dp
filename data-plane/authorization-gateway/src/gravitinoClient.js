@@ -2,8 +2,12 @@ const axios = require("axios");
 
 const GRAVITINO_URL = process.env.GRAVITINO_URL || "http://gravitino:8090";
 const METALAKE = process.env.GRAVITINO_METALAKE || "org_demo";
+// The JDBC catalog that models the data-plane Postgres. Its tables/schemas
+// become Gravitino securable objects, so roles can carry real table privileges.
+const PG_CATALOG = process.env.GRAVITINO_PG_CATALOG || "pg_catalog";
 
-const client = axios.create({ baseURL: `${GRAVITINO_URL}/api`, timeout: 5000 });
+const client = axios.create({ baseURL: `${GRAVITINO_URL}/api`, timeout: 8000 });
+const enc = encodeURIComponent;
 
 /**
  * IMPORTANT: these REST paths follow Gravitino's documented API
@@ -105,7 +109,7 @@ async function ensureRole(roleName, securableObjects) {
 
 async function ensureUser(username) {
   try {
-    await client.get(`/metalakes/${METALAKE}/users/${username}`);
+    await client.get(`/metalakes/${METALAKE}/users/${enc(username)}`);
   } catch {
     await client.post(`/metalakes/${METALAKE}/users`, { name: username });
   }
@@ -113,13 +117,72 @@ async function ensureUser(username) {
 
 async function grantRoleToUser(username, roleName) {
   await ensureUser(username);
-  await client.put(`/metalakes/${METALAKE}/permissions/users/${username}/grant`, {
+  await client.put(`/metalakes/${METALAKE}/permissions/users/${enc(username)}/grant`, {
     roleNames: [roleName],
   });
 }
 
+// ── Postgres-as-Gravitino-catalog + RBAC reads (source of truth for PG) ──────
+
+/** Create the jdbc-postgresql catalog that models the data-plane Postgres. */
+async function ensurePgCatalog() {
+  try {
+    await client.get(`/metalakes/${METALAKE}/catalogs/${PG_CATALOG}`);
+  } catch {
+    await client.post(`/metalakes/${METALAKE}/catalogs`, {
+      name: PG_CATALOG,
+      type: "RELATIONAL",
+      provider: "jdbc-postgresql",
+      comment: "Data-plane Postgres, governed by control-plane RBAC",
+      properties: {
+        "jdbc-url": process.env.PG_JDBC_URL ||
+          `jdbc:postgresql://${process.env.PG_HOST || "postgres"}:${process.env.PG_PORT || 5432}/${process.env.PG_DATABASE || "dataplane"}`,
+        "jdbc-database": process.env.PG_DATABASE || "dataplane",
+        "jdbc-user": process.env.PG_ADMIN_USER || "postgres",
+        "jdbc-password": process.env.PG_ADMIN_PASSWORD || "postgres",
+        "jdbc-driver": "org.postgresql.Driver",
+      },
+    });
+  }
+}
+
+/**
+ * Create-if-absent a role whose privileges live on the PG catalog. This seeds
+ * the RBAC definition INTO Gravitino; the connector then reads it back to
+ * provision Postgres. `schemaGrants` = [{ schema, privileges:["SELECT_TABLE",…] }].
+ */
+async function ensurePgRole(roleName, schemaGrants) {
+  try {
+    await client.get(`/metalakes/${METALAKE}/roles/${enc(roleName)}`);
+  } catch {
+    const securableObjects = schemaGrants.map((g) => ({
+      fullName: `${PG_CATALOG}.${g.schema}`,
+      type: "SCHEMA",
+      privileges: g.privileges.map((p) => ({ name: p, condition: "ALLOW" })),
+    }));
+    await client.post(`/metalakes/${METALAKE}/roles`, { name: roleName, properties: {}, securableObjects });
+  }
+}
+
+/** Read a role's full detail (securableObjects + privileges) — the RBAC source. */
+async function getRole(roleName) {
+  const { data } = await client.get(`/metalakes/${METALAKE}/roles/${enc(roleName)}`);
+  return data.role;
+}
+
+/** Read a user's role assignments from Gravitino. */
+async function getUserRoles(username) {
+  try {
+    const { data } = await client.get(`/metalakes/${METALAKE}/users/${enc(username)}`);
+    return data.user?.roles || [];
+  } catch {
+    return [];
+  }
+}
+
 module.exports = {
   METALAKE,
+  PG_CATALOG,
   isReachable,
   ensureMetalake,
   ensureCatalog,
@@ -130,4 +193,8 @@ module.exports = {
   ensureRole,
   ensureUser,
   grantRoleToUser,
+  ensurePgCatalog,
+  ensurePgRole,
+  getRole,
+  getUserRoles,
 };
