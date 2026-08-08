@@ -19,7 +19,10 @@ services:
   mongo:
     image: mongo:7
     networks: [poc-net]
-    ports: ["27017:27017"] # host-mapped for local debugging only
+    # Host-mapped for local debugging only. 27018, not 27017: a host mongod
+    # already owns 27017 (it serves inaiera-core's InAiEra database) and the
+    # bind would fail. Inside poc-net this is still mongo:27017.
+    ports: ["27018:27017"]
     volumes: [mongo-data:/data/db]
     healthcheck:
       # Ensure dependents wait until the mongod listener actually accepts.
@@ -43,6 +46,16 @@ services:
     image: quay.io/keycloak/keycloak:25.0
     command: ["start-dev", "--import-realm", "--features=token-exchange"]
     environment:
+      # The container has no memory limit, so the JVM sizes its heap against
+      # the whole 3.8 GB Docker VM and gets OOM-killed (137) once Kafka,
+      # Gravitino and the rest are also running. 512M is plenty for a local
+      # realm and makes Keycloak a well-behaved neighbour.
+      JAVA_OPTS_KC_HEAP: "-Xms256m -Xmx512m"
+      # Theme/template caching off so edits to the mounted theme appear on
+      # refresh. Dev-only — leave these out (or true) anywhere real.
+      KC_SPI_THEME_STATIC_MAX_AGE: "-1"
+      KC_SPI_THEME_CACHE_THEMES: "false"
+      KC_SPI_THEME_CACHE_TEMPLATES: "false"
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       # Frontend URL stamped into tokens (iss) and browser redirects. HTTPS is
@@ -60,12 +73,20 @@ services:
     volumes:
       - ./control-plane/keycloak/realm-inaiera.json:/opt/keycloak/data/import/realm-inaiera.json
       - ./control-plane/keycloak/realm-acme.json:/opt/keycloak/data/import/realm-acme.json
+      # Per-org realm. Each tenant that gets its own realm needs a file here,
+      # otherwise the realm exists only as live state and dies with the H2 db.
+      - ./control-plane/keycloak/realm-techstart.json:/opt/keycloak/data/import/realm-techstart.json
       - ./certs/keycloak.pem:/opt/keycloak/conf/cert.pem:ro
       - ./certs/keycloak-key.pem:/opt/keycloak/conf/key.pem:ro
+      # InAiEra-branded login theme. Bind-mounted so CSS edits show up on a
+      # browser refresh (with caching disabled below) instead of a rebuild.
+      - ./control-plane/keycloak/themes/inaiera:/opt/keycloak/themes/inaiera:ro
     networks: [poc-net]
     # 8443 = browser-facing (HTTPS, so Chrome accepts the SameSite=None cookie).
-    # 8080 = kept for internal server-side callers (BFF + broker).
-    ports: ["8080:8080", "8443:8443"]
+    # 8080 = kept for internal server-side callers (BFF + broker). Those reach
+    # it as keycloak:8080 over poc-net, so the host mapping is convenience
+    # only — published on 8081 because inaiera-dataconnect already holds 8080.
+    ports: ["8081:8080", "8443:8443"]
     healthcheck:
       # Keycloak 25 with HTTPS enabled also serves the management port over
       # TLS, so the raw-HTTP probe we had before fails. Fall back to a plain

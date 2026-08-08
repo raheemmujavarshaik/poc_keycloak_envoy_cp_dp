@@ -1,0 +1,274 @@
+/*
+ * InAiEra login theme.
+ *
+ * Mirrors the app's own sign-in screen (src/pages/Auth/LoginPage.tsx): the
+ * orange gradient, 12px radii, gray-50 inputs that turn white on focus, and
+ * the same type scale — so the Keycloak hop doesn't feel like leaving the
+ * product.
+ *
+ * Palette is lifted from the app rather than re-picked, so the two stay in
+ * step: #ff8c00 → #ff4500 gradient, #ff4500 primary, Tailwind grays.
+ */
+
+/* ── Tenant palettes ─────────────────────────────────────────────────────────
+ *
+ * White-labelling without a theme per customer. js/inaiera.js stamps the realm
+ * onto <html data-realm="…"> before first paint; each block below overrides
+ * only the four brand variables, and every rule in this file is written
+ * against those variables, so the whole page re-brands from one small block.
+ *
+ * Onboarding a tenant = add a block here. No new theme directory, no
+ * duplicated CSS to keep in step, nothing to re-test.
+ *
+ *   :root[data-realm="acme"] {
+ *     --brand-start: #2563eb;  --brand-end: #1e40af;
+ *     --brand-deep:  #1e3a8a;  --brand-wash-a: #eff6ff; --brand-wash-b: #dbeafe;
+ *   }
+ */
+:root {
+  /* Platform default — used by any realm without its own block. */
+  --brand-start:  #ff8c00;
+  --brand-end:    #ff4500;
+  --brand-deep:   #e63900;
+  --brand-wash-a: #fff7ed;
+  --brand-wash-b: #ffedd5;
+  --brand-wash-c: #fed7aa;
+  --brand-tint:   rgba(255, 140, 0, 0.15);
+  --brand-shadow: rgba(230, 57, 0, 0.25);
+}
+
+/* TechStart Inc — realm `techstart` */
+:root[data-realm="techstart"] {
+  --brand-start:  #0ea5e9;
+  --brand-end:    #0369a1;
+  --brand-deep:   #075985;
+  --brand-wash-a: #f0f9ff;
+  --brand-wash-b: #e0f2fe;
+  --brand-wash-c: #bae6fd;
+  --brand-tint:   rgba(14, 165, 233, 0.18);
+  --brand-shadow: rgba(3, 105, 161, 0.28);
+}
+
+:root {
+  /* Legacy aliases: the rules below were written against these names, so they
+     now simply follow whichever tenant palette is active. */
+  --inaiera-orange-start: var(--brand-start);
+  --inaiera-orange-end:   var(--brand-end);
+  --inaiera-orange-deep:  var(--brand-deep);
+  --inaiera-gray-900: #111827;
+  --inaiera-gray-600: #4b5563;
+  --inaiera-gray-500: #6b7280;
+  --inaiera-gray-400: #9ca3af;
+  --inaiera-gray-200: #e5e7eb;
+  --inaiera-gray-50:  #f9fafb;
+  --inaiera-radius:   12px;
+}
+
+/* ── Page shell ─────────────────────────────────────────────────────────── */
+/* The stock theme paints a dark PatternFly background image; replace it with
+   the app's warm gradient wash. */
+.login-pf-page,
+body.login-pf,
+html.login-pf {
+  background: linear-gradient(150deg, var(--brand-wash-a) 0%, var(--brand-wash-b) 55%, var(--brand-wash-c) 100%) !important;
+  background-image: none !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+}
+
+.login-pf-page {
+  padding-top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+/* ── Brand header ───────────────────────────────────────────────────────── */
+/* Renders the REALM's own display name, styled as the wordmark — so one
+   shared theme brands every tenant correctly:
+   realm inaiera → "InAiEra Platform", realm techstart → "TechStart Inc".
+   An earlier version hid this text and hard-coded "InAiEra" via ::after,
+   which meant every tenant saw the platform's name instead of their own. */
+#kc-header-wrapper {
+  padding: 0 0 4px;
+  margin-bottom: 8px;
+  text-align: center;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--inaiera-orange-start), var(--inaiera-orange-end));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--inaiera-orange-end); /* fallback where background-clip is unsupported */
+}
+
+/* ── Card ───────────────────────────────────────────────────────────────── */
+.card-pf {
+  border: 1px solid var(--inaiera-gray-200);
+  border-radius: 20px;
+  box-shadow: 0 20px 45px var(--brand-shadow), 0 2px 6px rgba(17, 24, 39, 0.04);
+  padding: 36px 34px 30px;
+  max-width: 440px;
+  margin: 0 auto;
+  background: #fff;
+}
+
+#kc-page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--inaiera-gray-900);
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+/* ── Labels + inputs ────────────────────────────────────────────────────── */
+.pf-v5-c-form__label,
+.pf-v5-c-form__label-text,
+label.pf-v5-c-form__label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--inaiera-gray-600) !important;
+}
+
+input[type='text'],
+input[type='email'],
+input[type='password'],
+.pf-v5-c-form-control,
+.pf-v5-c-form-control > input {
+  border: 1px solid var(--inaiera-gray-200) !important;
+  border-radius: var(--inaiera-radius) !important;
+  background: var(--inaiera-gray-50) !important;
+  padding: 12px 14px !important;
+  height: auto !important;
+  font-size: 14px !important;
+  color: var(--inaiera-gray-900) !important;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  /* PatternFly draws its underline via a pseudo-element; remove it so the
+     rounded border isn't doubled. */
+  --pf-v5-c-form-control--after--BorderBottomWidth: 0;
+}
+
+input:focus,
+.pf-v5-c-form-control:focus-within {
+  background: #fff !important;
+  border-color: var(--inaiera-orange-start) !important;
+  box-shadow: 0 0 0 3px var(--brand-tint) !important;
+  outline: none !important;
+}
+
+::placeholder { color: var(--inaiera-gray-400); }
+
+/* ── Primary button ─────────────────────────────────────────────────────── */
+input[type='submit'],
+.pf-v5-c-button.pf-m-primary,
+#kc-login {
+  background: linear-gradient(135deg, var(--inaiera-orange-start) 0%, var(--inaiera-orange-end) 100%) !important;
+  border: none !important;
+  border-radius: var(--inaiera-radius) !important;
+  padding: 13px 20px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #fff !important;
+  width: 100%;
+  box-shadow: 0 8px 18px var(--brand-shadow);
+  transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
+}
+
+input[type='submit']:hover,
+.pf-v5-c-button.pf-m-primary:hover,
+#kc-login:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 10px 24px var(--brand-shadow);
+  transform: translateY(-1px);
+}
+
+input[type='submit']:active,
+#kc-login:active { transform: translateY(0); }
+
+/* ── Links ──────────────────────────────────────────────────────────────── */
+a, a:visited { color: var(--inaiera-orange-end); font-weight: 600; }
+a:hover      { color: var(--inaiera-orange-deep); text-decoration: underline; }
+
+#kc-form-options .checkbox label { color: var(--inaiera-gray-500); font-size: 13px; }
+
+/* "Forgot password?" — injected by js/inaiera.js, styled to match the app's
+   own forgot-password link on the sign-in screen. */
+.inaiera-forgot-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--inaiera-orange-end);
+}
+
+#kc-form-options { display: flex; justify-content: space-between; align-items: center; }
+
+/* ── Enterprise IdP buttons (the "Acme Corp SSO" branch) ────────────────── */
+#kc-social-providers ul { list-style: none; padding: 0; }
+
+#kc-social-providers a,
+.pf-v5-c-button.pf-m-control {
+  border: 1px solid var(--inaiera-gray-200) !important;
+  border-radius: var(--inaiera-radius) !important;
+  background: #fff !important;
+  color: var(--inaiera-gray-900) !important;
+  font-weight: 600 !important;
+  padding: 11px 16px !important;
+}
+
+#kc-social-providers a:hover {
+  border-color: var(--inaiera-orange-start) !important;
+  background: var(--brand-wash-a) !important;
+  text-decoration: none;
+}
+
+/* ── Alerts ─────────────────────────────────────────────────────────────── */
+.pf-v5-c-alert, .alert {
+  border-radius: var(--inaiera-radius) !important;
+  border-width: 1px !important;
+  font-size: 13px;
+}
+
+.pf-v5-c-alert.pf-m-danger, .alert-error {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #b91c1c !important;
+}
+
+.pf-v5-c-alert.pf-m-warning, .alert-warning {
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #b45309 !important;
+}
+
+.pf-v5-c-alert.pf-m-success, .alert-success {
+  background: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #047857 !important;
+}
+
+.pf-v5-c-alert.pf-m-info, .alert-info {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1d4ed8 !important;
+}
+
+/* ── Footer note ────────────────────────────────────────────────────────── */
+#kc-info-wrapper {
+  background: var(--inaiera-gray-50);
+  border-top: 1px solid var(--inaiera-gray-200);
+  border-radius: 0 0 20px 20px;
+  font-size: 13px;
+  color: var(--inaiera-gray-500);
+  margin: 24px -34px -30px;
+  padding: 16px 34px;
+}
+
+@media (max-width: 480px) {
+  .card-pf { padding: 26px 20px; border-radius: 16px; }
+  #kc-info-wrapper { margin: 20px -20px -26px; padding: 14px 20px; }
+}
